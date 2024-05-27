@@ -1,191 +1,345 @@
 ---
-title: "Assignment 3: Model comparison"
-author: "Marton Kovacs"
+title: "DeannevrAssignment04"
+author: 'assignment04'
+date: "20/04/2024"
 output: html_document
-editor_options: 
-  chunk_output_type: console
 ---
 
-In this lab assignment you are going to work with (simulated) data related to perioperative pain and its psychological and hormonal predictors. In the assignment you will assess the added benefit of including some psychological and hormonal predictors to the already established demographic predictors of pain.
+Data source:
 
-In this assignment you will set up a hierarchical regression model to predict postoperative pain after wisdom tooth surgery. 
+- https://github.com/rfordatascience/tidytuesday/tree/master/data/2022/2022-01-18
 
-# Research problem
+- https://flavorsofcacao.com/chocolate_database.html
 
-The amount of pain experienced around and after surgeries are highly variable between and within individuals. In order to improve surgical pain management regimens we need to understand what influences pain around surgical procedures and predict the amount of pain an individual will experience.
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
 
-Your first study in this area is related to assessing the influence of trait and state psychological measures on pain, and to see whether taking into account these variables can improve our understanding of postoperative pain.
+library(dplyr)
+library(tidyr)
 
-# Procedures and measures
+library(ggplot2)
+library(reshape2)
 
-Use the data file called ‘assignment_3_dataset’, from the 'data/' folder.
+library(countrycode)
 
-You have collected data from 160 adults who were scheduled to undergo surgical extraction of the third mandibular molar (wisdom tooth surgery). Patients filled out a form in the waiting room before their surgery. The form contained questions about their sex, age, and weight, and psychological questionnaires assessing anxiety, pain catastrophizing, and mindfulness (see descriptions below). You also got blood samples and saliva samples from participants in the waiting room 5 minutes before their operations to determine the serum (a component of the blood) and salivary cortisol levels of participants. Participants were contacted 5 hours after the surgery to see how much pain they were experiencing. The __level of pain__ at that moment was recorded using a numerical rating scale using a __scale of 0 to 10__, where 0 means “no pain” and 10 means “worst pain I can imagine”. 
+library(car)
 
-__The State Trait Anxiety Inventory:__ T measures trait anxiety on a scale of 20 to 80, higher scores mean higher anxiety. Anxiety has been found in many studies to positively correlate with the level of pain experienced. This is __variable STAI_trait__ in the dataset.
+library(stringr)
 
-__The Pain Catastrophizing Scale__ measures the extent of pain catastrophizing, which is characterized by a tendency to magnify the threat value of a pain stimulus and to feel helpless in the presence of pain, as well as by a relative inability to prevent or inhibit pain-related thoughts in anticipation of, during, or following a painful event. The total score on this scale ranges from 0 to 52, higher scores mean higher catastrophizing. Pain catastrophizing is one of the well-established predictors of clinical pain. This is __variable pain_cat__ in the dataset.
+library(tidytext)
+```
 
-__The Mindful Attention Awareness Scale (MAAS)__ measures dispositional mindfulness, which may be described as a tendency to turn attention to present-moment experiences in an open, non-judgmental way. The MAAS total score ranges from 1 to 6 (an average of the item scores), with higher scores representing higher dispositional mindfulness. Trait mindfulness has been theorized to serve as a protective factor against pain, as the individual would be more objective about their pain experience and tend to associate less discomfort, despair, and hopelessness to the pain-related sensations. This is __variable mindfulness__ in the dataset.
-
-__Cortisol__ is a stress hormone associated with acute and chronic stress. Cortisol levels are thought to be positively associated with pain experience. Cortisol can be __measured from both blood and the saliva__, although, serum cortisol is often regarded in medical research as more reliably related to stress (serum is a component of the blood plasma). These are __variables cortisol_serum__, and __cortisol_saliva__ in the dataset.
-
-# Research question
-
-Previous studies and meta-analyses showed that age and sex are often predictors of pain (age is negatively associated with pain, while sex is a predictor more dependent on the type of the procedure). You would like to determine the extent to which taking into account psychological and hormonal variables aside from the already used demographic variables would improve our understanding of postoperative pain.
-
-To answer this research question you will __need to compare two models__ (with a hierarchical regression). The __simpler model__ should contain __age and sex as predictors of pain__, while the __more complex model__ should contain the __predictors: age, sex, STAI, pain catastrophizing, mindfulness, and cortisol measures__. Notice that the predictors used in the simpler model are a subset of the predictors used in more complex model. __You will have to do model comparison to assess whether substantial new information was gained about pain in the more complex model compared to the simpler model.__  
-
-# What to report
-
-As usual, before you can interpret your model, you will need to run data and model diagnostics. First, check the variables included in the more complex model (age, sex, STAI, pain catastrophizing, mindfulness, and cortisol measures as predictors, and pain as an outcome) for __coding errors__, and the model itself for __influential outliers__ (for example using Cook’s distance). Furthermore, check the final model to see if the __assumptions of linear regression hold true__, that is, __normality__ (of the residuals), __linearity__ (of the relationship), __homogeneity of variance__ (also called homoscedasticity) and that there is no excess __multicollinearity__ (“uncorrelated predictors” in Navarro’s words). If you find anything amiss during these checks, make the appropriate decision or correction and report your findings and actions in your report. 
-
-__Note:__ If you do any changes, such as exclude cases, or exclude predictors from the model, you will have to re-run the above checks for your final data and model.
-
-Report the results of the simpler model and the more complex model. For both models you should report the model test statistics (adj.R2, F, df, and p value). Also, report the statistics describing the coefficients of the predictors in a table format (unstandardized regression coefficients and 95% confidence intervals, standardized regression coefficients (B and Beta values), and p values).
-
-Write up the regression equation of the more complex model in the form of 𝑌 = 𝑏0 + 𝑏1 ∗ X1 + 𝑏2 ∗ X2 +…+ bn * Xn, in which you use the actual regression coefficients of your models. (b0 stands for the intercept and b1, b2 … bn stand for the model coefficients for each of the predictors, and X1, X2, … Xn denote the predictors).
-
-Compare the two models in terms of how much variance they explain of pain’s variability in the sample. Report Akaike information criterion (AIC) for both models and the F test statistic and p value of the likelihood ratio test comparing the two models.
-
-# What to discuss
-
-In your discussion of the findings, briefly interpret the results of the above analyses, and indicate whether you think that anything was gained by including the psychological and hormone measures in the model.
-
-# Solution
-
-## Read the data
-
-Read the dataset used in this assignment. Pay attention to the extension of the datafile.
+# Reading the data
 
 ```{r}
+raw_data = read.csv('C:/Users/Deanne/Desktop/Term 4/SUBJECTS/STATS PROGRAMMING/chocolate.csv')
+N = nrow(raw_data)
+raw_data = raw_data %>% mutate(key = 1:N) # adding a unique ID to all rows
+```
+
+# EDA
+
+```{r}
+head(raw_data)
+
+summary(raw_data)
+```
+
+The built-in summary for R give us only a glimpse on the data, showing data types and some fundamental statistics for numerical values. Seeing only the first 5 rows of our data set
+
+```{r}
+tmp = raw_data %>%
+  count(company_location) %>%
+  arrange(desc(n)) %>%
+  top_n(20)
+
+tmp = raw_data %>% inner_join(tmp, by = join_by(company_location)) %>% select(!n)
+
+tmp %>% ggplot(aes(x=reorder(company_location, company_location, length))) + 
+  geom_bar() +
+  coord_flip() +
+  labs(title="Number of chocolate ratings by company locations, in descending order", x = "Company locations", y = "N")
+
+length(unique(raw_data$company_location))
+```
+
+We can see that the chocolate market represented in the data set are largely dominated by the U.S. Keep in mind, that we only displayed the top 20 values for chart clarity, however, this is less than half of the unique values from the data set for company locations.
+
+```{r}
+tmp = raw_data %>%
+  count(country_of_bean_origin) %>%
+  arrange(desc(n)) %>%
+  top_n(20)
+
+tmp = raw_data %>% inner_join(tmp, by = join_by(country_of_bean_origin)) %>% select(!n)
+
+tmp %>% ggplot(aes(x=reorder(country_of_bean_origin, country_of_bean_origin, length))) +
+  geom_bar() +
+  coord_flip() +
+  labs(title="Number of chocolate ratings by cocoa bean origin, in descending order", x = "Bean origin country", y = "N")
+
+length(unique(raw_data$country_of_bean_origin))
+
+nrow(tmp) / nrow(raw_data)
+```
+
+While this data shows less of a drastic drop from a specific value compared to our previous plot with company location, we also see that these top 20 origins of cocoa beans populate 85% of the data set, which also means an uneven distribution.
+
+# Data cleaning and feature engineering
+
+Both data cleaning and feature engineering are core parts of any data science project. Here, our data set mostly contains a set of nominal type variables like manufacturer name, or chocolate characteristics. Nominal variables can be one-hot encoded to map them to numerical values without introducing any kind of ordering between the values variable. One must be careful, however, with one-hot encoding as if the number of unique values is high, it can introduce a vast amount of dummy variables. To address this, an aggregation is done on many of these variables:
+
+- both manufacturer country and cocoa bean origin are first aggregated up to continent level, using the "countrycode" library. This leaves at most 5 different values, which are one-hot encoded in to dummy variables, all starting with either with prefix "company_" referring to the chocolate manufacturer or "origin_" where the beans were grown.
+
+```{r}
+data = raw_data %>%
+  
+  # select only relevant columns: dropping ref and manufacturer, adding key as unique identifier
+  select(key,
+         review_date,
+         company_location,
+         country_of_bean_origin,
+         cocoa_percent,
+         ingredients,
+         most_memorable_characteristics,
+         rating) %>%
+  
+  # renaming
+  rename(year = review_date,
+         location = company_location,
+         origin = country_of_bean_origin,
+         cocoa = cocoa_percent,
+         characteristics = most_memorable_characteristics) %>%
+  
+  # cocoa % to integers
+  mutate(cocoa = as.numeric(sub("%", "", cocoa))) %>% 
+  
+  # https://stackoverflow.com/questions/52539750/r-how-to-one-hot-encoding-a-single-column-while-keep-other-columns-still
+  # aggregating manufacturer country to continent level
+  mutate(location = countrycode(location, origin = "country.name", destination = "continent")) %>%
+  mutate(location = replace_na(location, "Europe")) %>% # handling some missed data Amsterdam, Scotland, Wales
+  mutate(value = 1) %>% spread(location, value,  fill = 0) %>%
+  rename(company_Africa = Africa,
+         company_Americas = Americas,
+         company_Asia = Asia,
+         company_Europe = Europe,
+         company_Oceania = Oceania) %>%
+  
+  # repeat the same aggregation on cocoa bean origin
+  mutate(continent = countrycode(origin, origin = "country.name", destination = "continent"))  %>%
+  mutate(continent = if_else(origin == "Principe", "Africa", continent)) %>%
+  mutate(continent = if_else(origin == "Sulawesi", "Oceania", continent)) %>%
+  mutate(continent = if_else(origin == "Sumatra", "Oceania", continent)) %>%
+  filter(origin != "Blend") %>%
+  select(!origin) %>%
+  mutate(value = 1) %>% spread(continent, value,  fill = 0) %>%
+  rename(origin_Africa = Africa,
+         origin_Americas = Americas,
+         origin_Asia = Asia,
+         # origin_Europe = Europe, # Europe is not in the manufacturers
+         origin_Oceania = Oceania)
+
+head(data)
+```
+
+To utilize a characteristics column, sentiment analysis was exploited from the "tidytext" library. This way, we can have scoring to critiques written assessment. For a given chocolate, these ratings were averaged back to get a single score. Also, the number of characteristics given were also saved in a column.
+
 
 ```
 
-## Data and model diagnostics 
-### Data diagnostics
-#### Descriptives of the variables
-
-Run an exploratory data analysis (EDA) to investigate the dataset.
+Lastly, similar transformation is done on the additional ingredients columns. Each ingredient were extracted into separate, binary columns, which have value 1 if the given ingredient is added to the chocolate. The total number of additional ingredients were also saved.
 
 ```{r}
 
+tmp = data %>%
+  select(key, ingredients) %>%
+  mutate(ingredients = str_replace_all(ingredients, "\\d-", "")) %>%
+  separate_longer_delim(ingredients, ",") %>%
+  mutate(ingredients = str_replace_all(ingredients, " B", "B")) %>%
+  mutate(value = 1) %>% spread(ingredients, value,  fill = 0) %>%
+  select(!V1) %>%
+  rename(
+    contains_beans = B)
+
 ```
 
-#### Correct coding errors
+# Additional data inspection after transformation
 
-If you find values in the dataset during the EDA, that are not correct based on the provided descriptions of the variables of the dataset please correct them here.
+This short section present a few additional interesting details about our data set.
 
 ```{r}
+tmp = data %>% group_by(year) %>% summarise(avg = mean(rating))
 
+tmp %>%
+  ggplot(aes(x = year, y = avg)) +
+  geom_line(size = 1) +
+  labs(title="Average rating of chocolate over years", x = "", y = "")
+
+round(cor(data$year, data$rating), 2)
+
+round(cor(tmp$year, tmp$avg), 2)
+
+data %>%
+  summarise_at(c("company_Africa", "company_Americas", "company_Asia", "company_Europe", "company_Oceania"), sum) %>%
+  gather() %>% # https://tidyr.tidyverse.org/reference/gather.html
+  ggplot(aes(x=key, y=value)) + # https://stackoverflow.com/questions/5208679/order-bars-in-ggplot2-bar-graph
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title="Number of chocolate ratings by company locations on continent level", x = "Company locations continents", y = "N")
+
+data %>%
+  summarise_at(c("origin_Africa", "origin_Americas", "origin_Asia", "origin_Oceania"), sum) %>%
+  gather() %>% # https://tidyr.tidyverse.org/reference/gather.html
+  ggplot(aes(x=key, y=value)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  labs(title="Number of chocolate ratings by cocoa bean origin continent", x = "Bean origin country continents", y = "N")
 ```
 
-### Model diagnostics
-#### Build the more complex model
+Notes:
 
-In order to test the more complex model for outliers and to test the assumptions first build the model.
+1. While the low correlation between year and rating suggest no linear relationship between in the data set, the aggregation to year level indicates a more strong relationship. Judges seem to rate chocolates higher over time.
+
+2. While the aggregation did not solve the skewness of our data towards America, its variance in terms of distinct values is certainly reduced. This will lead us to a model which more easy to interpret.
+
+After all this, we conclude the section with centering and scaling the data.
 
 ```{r}
-
+data = data %>% select(!key) %>% scale() %>% data.frame()
+# summary(data)
 ```
 
-#### Checking for influential outliers
-
-Check for outlier values in the model.
+# A linear model fitted and evaluated
 
 ```{r}
+model = lm(rating ~ year + cocoa +
+            company_Africa + company_Americas + company_Asia + company_Europe + company_Oceania +
+            origin_Africa + origin_Americas + origin_Asia + origin_Oceania +
+            count_characteristics + average_characteristics_rating +
+            contains_beans + contains_cocoa_butter + contains_lecithin + contains_sugar + contains_sweetener + contains_salt + contains_vanilla + count_additional_ingredients,
+          data)
 
+summary(model)
+
+round(anova(model), 4)
+
+corr = melt(round(cor(data), 2)) # http://www.sthda.com/english/wiki/ggplot2-quick-correlation-matrix-heatmap-r-software-and-data-visualization
+ggplot(data = corr, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
+  labs(title="Correlation between data set variables", x = "", y = "")
+
+hist(resid(model))
+
+shapiro.test(resid(model))
+
+car::ncvTest(model)
 ```
 
-#### Checking assumptions
+In the end, tried to fit a linear model to our data set, trying to see if there are variables whose linear combination explain certain ratings. Our model reported the following with varying significance:
 
+- year
+- cocoa
+- count_characteristics
+- contains_beans
+- contains_vanilla
+
+These variables were also reported as significant in the ANOVA, meaning that they indeed explain a proportion of variance among the ratings.
+
+However, in the end the model residuals' statistics tells us that fitting a linear model is not appropriate to this set of variables because 1) the residuals are not normally distributed - which is visible on the histogram and Shapiro-Wilk test returned a p-value below of the usual 0.05 tolerance; and because 2) the residuals are also not homoscedastic, proven by the Breusch–Pagan test which returned also a low p-value.
 Check the normality assumption.
 
 ```{r}
+hist(simple_data$age)
+shapiro.test(simple_data$age) 
 
+hist(simple_data$sex)
+shapiro.test(simple_data$sex) 
 ```
 
 Check the linearity assumption.
 
 ```{r}
+cor(simple_data$age, simple_data$pain)
 
+cor(simple_data$sex, simple_data$pain) 
 ```
 
 Check the homoscedasticty assumption (homogeneity of variance).
 
 ```{r}
-
-```
-
-Check the multicollinearity assumption.
-
-(VIF above 5), or a VIF threshold of 3 is recommended in this paper: http://onlinelibrary.wiley.com/doi/10.1111/j.2041-210X.2009.00001.x/full
-
-Some info about VIF: 
-https://statisticalhorizons.com/multicollinearity
-http://blog.minitab.com/blog/understanding-statistics/handling-multicollinearity-in-regression-analysis
-
-```{r}
-
-```
-
-### Making decision based on model diagnostics
-
-If based on the assumption tests you decide to drop a predictor variable you should do that here. Create your updated model.
-
-```{r}
-
-```
-
-#### Checking outliers of the updated model
-
-```{r}
-
-```
-
-#### Checking assumptions of the updated model
-
-Normality assumption
-
-```{r}
-
-```
-
-Linearity assumption
-
-```{r}
-
-```
-
-Homoscedasticty assumption (homogeneity of variance)
-
-```{r}
-
+ncvTest(simple_model) 
 ```
 
 Multicollinearity assumption
 
 ```{r}
+vif(simple_model) 
+```
+
+
+If based on the assumption tests you decide to drop a predictor variable you should do that here. Create your updated model.
+
+```{r}
+# data filtered to relevant variables only
+complex_data = data %>% select(sex, age, STAI_trait, pain_cat, mindfulness, cortisol, pain)
+
+# create a simple linear regression model
+complex_model = lm(pain ~ sex + age + STAI_trait + pain_cat + mindfulness + cortisol, data = complex_data)
+
+summary(complex_model)
 
 ```
 
-## Model comparison
-
-Create the simple model and get the results of the model that needs to be reported based on the What to report section.
 
 ```{r}
+complex_data = complex_data %>% mutate(cooks_d = cooks.distance(complex_model))
+
+complex_data %>% filter(cooks_d >= threshold)
+
 
 ```
 
-Create the more complex model based on the results of the model diagnostics. Also, get the results that needs to be reported based on the What to report section.
+
+Normality assumption
 
 ```{r}
+hist(complex_data$STAI_trait)
+shapiro.test(complex_data$STAI_trait) 
 
+hist(complex_data$pain_cat)
+shapiro.test(complex_data$pain_cat) 
+
+hist(complex_data$mindfulness)
+shapiro.test(complex_data$mindfulness) 
+
+hist(complex_data$cortisol)
+shapiro.test(complex_data$cortisol) 
+```
+
+Linearity assumption
+
+```{r}
+cor(complex_data$STAI_trait, complex_data$pain)
+cor(complex_data$pain_cat, complex_data$pain)
+cor(complex_data$mindfulness, complex_data$pain)
+cor(complex_data$cortisol, complex_data$pain)
+```
+
+Homoscedasticty assumption (homogeneity of variance)
+
+```{r}
+ncvTest(complex_model) 
+```
+
+Multicollinearity assumption
+
+```{r}
+vif(complex_model)
 ```
 
 Compare the two models.
 
 ```{r}
-
+anova(simple_model, complex_model)
 ```
-
